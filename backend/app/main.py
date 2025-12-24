@@ -2,10 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
+from app.database import engine, Base
+from app.api import auth
 
 load_dotenv()
 
-app = FastAPI(title = "YouTube Watch Stats API")
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="YouTube Watch Stats API")
 
 origins = [
     "http://localhost:3000",
@@ -15,11 +19,13 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = origins,
-    allow_credentials = True,
-    allow_methods = ["*"],
-    allow_headers = ["*"],
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
+
+app.include_router(auth.router)
 
 @app.get("/")
 def root():

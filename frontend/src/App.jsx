@@ -1,26 +1,33 @@
-import { useState } from 'react'
-import './App.css'
+import { AuthProvider, useAuth } from './auth/AuthContext';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import './App.css';
 
-function App() {
-  const [status, setStatus] = useState(null)
+function AppContent() {
+  const { user, loading } = useAuth();
 
-  const checkBackend = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/health')
-      const data = await response.json()
-      setStatus(data.status)
-    } catch (error) {
-      setStatus('error')
-    }
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+      }}>
+        <h2>Loading...</h2>
+      </div>
+    );
   }
 
-  return (
-    <div className="App">
-      <h1>YouTube Watch Stats</h1>
-      <button onClick = {checkBackend}> Check Backend </button>
-      {status && <p>Backend status: {status}</p>}
-    </div>
-  )
+  return user ? <Dashboard /> : <Login />;
 }
 
-export default App
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+export default App;
