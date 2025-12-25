@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>YouTube Watch Stats</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📊 Watch Stats</h1>
+    </div>
+
+    <div id="notLoggedIn" class="section">
+      <p>Track your YouTube watch history automatically!</p>
+      <button id="loginBtn" class="primary-btn">Login to Sync</button>
+      <p class="help-text">Login to sync your watch data to the web app</p>
+    </div>
+
+    <div id="loggedIn" class="section" style="display: none;">
+      <div class="stat-card">
+        <div class="stat-label">Pending Sync</div>
+        <div class="stat-value" id="queueSize">0</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Total Tracked</div>
+        <div class="stat-value" id="totalTracked">0</div>
+      </div>
+
+      <button id="syncBtn" class="primary-btn">Sync Now</button>
+      <button id="openDashboard" class="secondary-btn">Open Dashboard</button>
+      <button id="logoutBtn" class="logout-btn">Logout</button>
+
+      <div id="syncStatus" class="status"></div>
+    </div>
+
+    <div class="footer">
+      <p>Extension is tracking videos automatically</p>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
