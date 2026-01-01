@@ -10,7 +10,9 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/login", response_model=LoginResponse)
 async def login(request: GoogleLoginRequest, db: Session = Depends(get_db)):
-
+    """
+    Login with Google OAuth
+    """
     try:
         user_info = verify_google_token(request.id_token)
         
@@ -53,9 +55,7 @@ async def get_current_user(
     authorization: str = Header(...),
     db: Session = Depends(get_db)
 ):
-
     try:
-
         token = authorization.replace("Bearer ", "")
         user_id = verify_session_token(token)
         
@@ -70,5 +70,4 @@ async def get_current_user(
 
 @router.post("/logout")
 async def logout():
-
-    return {"message": "Logout successful"}
+    return {"message": "Logout successful. Please delete your session token."}

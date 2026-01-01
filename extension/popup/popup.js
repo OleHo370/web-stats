@@ -1,6 +1,5 @@
 const WEBAPP_URL = 'http://localhost:5173';
 const API_URL = 'http://localhost:8000';
-
 document.addEventListener('DOMContentLoaded', async () => {
   await loadStats();
   setupEventListeners();
@@ -12,11 +11,16 @@ async function loadStats() {
   if (sessionToken) {
     document.getElementById('notLoggedIn').style.display = 'none';
     document.getElementById('loggedIn').style.display = 'block';
-    
+
     chrome.runtime.sendMessage({ type: 'GET_STATS' }, (response) => {
       if (response) {
         document.getElementById('queueSize').textContent = response.queueSize;
         document.getElementById('totalTracked').textContent = response.totalTracked;
+        
+        if (response.currentUser) {
+          document.getElementById('userInfo').style.display = 'block';
+          document.getElementById('userEmail').textContent = `Logged in as: ${response.currentUser.email}`;
+        }
       }
     });
   } else {
@@ -26,14 +30,12 @@ async function loadStats() {
 }
 
 function setupEventListeners() {
-
   document.getElementById('loginBtn').addEventListener('click', async () => {
-
     const token = prompt('Paste your session token from the web app:');
     
     if (token && token.trim()) {
       await chrome.storage.local.set({ sessionToken: token.trim() });
-
+      
       try {
         const response = await fetch(`${API_URL}/auth/me`, {
           headers: {
@@ -42,7 +44,8 @@ function setupEventListeners() {
         });
         
         if (response.ok) {
-          alert('Login successful! Extension is now connected.');
+          const user = await response.json();
+          alert(`Login successful!\n\nTracking for: ${user.email}\n\n`);
           loadStats();
         } else {
           alert('Invalid token. Please copy the correct token from the web app.');
@@ -91,7 +94,7 @@ function setupEventListeners() {
   document.getElementById('logoutBtn')?.addEventListener('click', async () => {
     if (confirm('Are you sure you want to logout?')) {
       await chrome.storage.local.remove('sessionToken');
-      alert('Logged out successfully');
+      alert('Logged out successfully. Your queued videos were not synced.');
       loadStats();
     }
   });

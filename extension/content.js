@@ -1,111 +1,58 @@
-console.log('YouTube Watch Stats Tracker: Content script loaded');
+let totalWatchTime = 0;
+let currentVideoId = new URLSearchParams(window.location.search).get('v');
+const INITIAL_THRESHOLD = 5;
 
-let currentVideoId = null;
-let videoStartTime = null;
-let watchThreshold = 30;
-
-
-function getVideoId() {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get('v');
-}
-
-function getVideoMetadata() {
-  const videoId = getVideoId();
-  if (!videoId) return null;
-
-  const titleElement = document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
-                       document.querySelector('h1.title yt-formatted-string');
-  const title = titleElement?.textContent?.trim() || 'Unknown Title';
-
-  const channelElement = document.querySelector('ytd-channel-name a') ||
-                        document.querySelector('#channel-name a');
-  const channelTitle = channelElement?.textContent?.trim() || 'Unknown Channel';
+async function syncToBackend() {
+  const videoId = new URLSearchParams(window.location.search).get('v');
+  
+  if (!videoId || !chrome.runtime?.id) return;
 
   const videoElement = document.querySelector('video');
-  const duration = videoElement ? Math.floor(videoElement.duration) : 0;
+  
+  const title = document.querySelector('h1.ytd-watch-metadata')?.textContent?.trim() || 
+                document.querySelector('h1.ytd-video-primary-info-renderer')?.textContent?.trim() || 
+                'Unknown Title';
+                
+  const channel = document.querySelector('ytd-channel-name a')?.textContent?.trim() || 
+                  document.querySelector('#channel-name a')?.textContent?.trim() || 
+                  'Unknown Channel';
 
-
-  const thumbnailElement = document.querySelector('meta[property="og:image"]');
-  const thumbnail = thumbnailElement?.content || '';
-
-  return {
-    videoId,
-    title,
-    channelTitle,
-    duration,
-    thumbnail,
-    watchedAt: new Date().toISOString(),
-    url: window.location.href
+  const metadata = {
+    videoId: videoId,
+    title: title,
+    channelTitle: channel,
+    duration: Math.floor(totalWatchTime),
+    videoDuration: videoElement ? Math.floor(videoElement.duration) : 0,
+    thumbnail: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
+    watchedAt: new Date().toISOString()
   };
+
+  try {
+    chrome.runtime.sendMessage({ type: 'VIDEO_WATCHED', data: metadata });
+    console.log(`Update Sent: ${totalWatchTime}s`);
+  } catch (err) {
+    console.warn("Sync failed");
+  }
 }
 
+setInterval(() => {
+  const video = document.querySelector('video');
+  const activeVideoId = new URLSearchParams(window.location.search).get('v');
 
-function trackVideoWatch() {
-  const metadata = getVideoMetadata();
-  if (!metadata) return;
-
-  console.log('Tracking video watch:', metadata);
-
-
-  chrome.runtime.sendMessage({
-    type: 'VIDEO_WATCHED',
-    data: metadata
-  });
-}
-
-function monitorVideo() {
-  const videoElement = document.querySelector('video');
-  if (!videoElement) {
-    setTimeout(monitorVideo, 1000);
+  if (activeVideoId !== currentVideoId) {
+    console.log("Video changed. Resetting counter.");
+    currentVideoId = activeVideoId;
+    totalWatchTime = 0;
     return;
   }
 
-  console.log('Video player found, monitoring...');
+  if (video && !video.paused && document.visibilityState === 'visible' && activeVideoId) {
+    totalWatchTime += 1;
 
-  let watchTimer = null;
-
-  videoElement.addEventListener('play', () => {
-    const videoId = getVideoId();
-    
-    if (videoId !== currentVideoId) {
-      currentVideoId = videoId;
-      videoStartTime = Date.now();
-      
-      watchTimer = setTimeout(() => {
-        console.log(`Video ${videoId} watched for ${watchThreshold}s, tracking...`);
-        trackVideoWatch();
-      }, watchThreshold * 1000);
+    if (totalWatchTime >= INITIAL_THRESHOLD) {
+      syncToBackend();
     }
-  });
-
-  videoElement.addEventListener('pause', () => {
-    if (watchTimer) {
-      clearTimeout(watchTimer);
-    }
-  });
-
-  videoElement.addEventListener('ended', () => {
-
-    trackVideoWatch();
-    currentVideoId = null;
-  });
-}
-
-function checkPage() {
-  if (window.location.pathname === '/watch') {
-    monitorVideo();
   }
-}
+}, 1000);
 
-checkPage();
-
-let lastUrl = location.href;
-new MutationObserver(() => {
-  const url = location.href;
-  if (url !== lastUrl) {
-    lastUrl = url;
-    currentVideoId = null;
-    checkPage();
-  }
-}).observe(document, { subtree: true, childList: true });
+console.log("1-Second Sync Tracker Active");

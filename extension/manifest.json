@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "YouTube Watch Stats Tracker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Track your YouTube watch history and sync with Watch Stats app",
   "permissions": [
     "storage",
     "tabs",
+    "notifications",
     "alarms"
   ],
   "host_permissions": [
@@ -13,13 +14,18 @@
     "http://localhost:8000/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/*"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_end"
     }
   ],
   "action": {

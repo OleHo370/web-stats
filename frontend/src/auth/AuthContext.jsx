@@ -18,6 +18,7 @@ export const AuthProvider = ({ children }) => {
         } catch (err) {
           console.error('Auth check failed:', err);
           localStorage.removeItem('session_token');
+          setUser(null);
         }
       }
       setLoading(false);
@@ -29,10 +30,13 @@ export const AuthProvider = ({ children }) => {
   const login = async (idToken, accessToken) => {
     try {
       setError(null);
-      const response = await auth.login(idToken, accessToken);
       
-      localStorage.setItem('session_token', response.session_token);
+      localStorage.removeItem('session_token');
+      
+      const response = await auth.login(idToken, accessToken);
 
+      localStorage.setItem('session_token', response.session_token);
+      
       setUser(response.user);
       
       return response;
@@ -45,13 +49,13 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await auth.logout();
-      setUser(null);
-      localStorage.removeItem('session_token');
     } catch (err) {
       console.error('Logout failed:', err);
-
+    } finally {
       setUser(null);
       localStorage.removeItem('session_token');
+      
+      window.location.href = '/';
     }
   };
 

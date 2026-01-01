@@ -1,117 +1,93 @@
-console.log('YouTube Watch Stats: Background script loaded');
-
 const API_BASE_URL = 'http://localhost:8000';
 let watchQueue = [];
-let syncInterval = 60000;
+let currentUser = null;
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'VIDEO_WATCHED') {
-    console.log('Received video watch event:', message.data);
-
-    watchQueue.push(message.data);
-    
-    saveToLocalStorage(message.data);
-    
-    syncToBackend();
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local' && changes.sessionToken) {
+    console.log('Token updated, refreshing auth');
+    getCurrentUser();
   }
 });
 
-async function saveToLocalStorage(videoData) {
-  try {
-    const { watchHistory = [] } = await chrome.storage.local.get('watchHistory');
-    watchHistory.push(videoData);
+async function getCurrentUser() {
+  const { sessionToken } = await chrome.storage.local.get('sessionToken');
+  if (!sessionToken) return null;
 
-    const trimmed = watchHistory.slice(-1000);
-    
-    await chrome.storage.local.set({ watchHistory: trimmed });
-    console.log('Saved to local storage. Queue size:', trimmed.length);
-  } catch (error) {
-    console.error('Error saving to local storage:', error);
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: { 'Authorization': `Bearer ${sessionToken}` }
+    });
+    if (response.ok) {
+      currentUser = await response.json();
+      console.log('Authenticated as:', currentUser.email);
+      return currentUser;
+    }
+  } catch (err) {
+    console.error('Auth check failed:', err);
   }
+  return null;
 }
 
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'VIDEO_WATCHED') {
+    const isDuplicate = watchQueue.some(item => 
+      item.videoId === message.data.videoId && 
+      Math.abs(new Date(item.watchedAt) - new Date(message.data.watchedAt)) < 10000
+    );
+    
+    if (!isDuplicate) {
+      watchQueue.push(message.data);
+      updateBadge();
+      syncToBackend();
+    }
+    sendResponse({ success: true });
+  }
+  return true;
+});
+
 async function syncToBackend() {
-
   const { sessionToken } = await chrome.storage.local.get('sessionToken');
-  
-  if (!sessionToken) {
-    console.log('No session token, skipping sync');
-    return;
-  }
-
-  if (watchQueue.length === 0) {
-    console.log('Queue empty, nothing to sync');
-    return;
-  }
+  if (!sessionToken || watchQueue.length === 0) return;
 
   try {
-    console.log(`Syncing ${watchQueue.length} videos to backend...`);
-    
     const response = await fetch(`${API_BASE_URL}/ingest/extension`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${sessionToken}`
       },
-      body: JSON.stringify({
-        videos: watchQueue
-      })
+      body: JSON.stringify({ videos: watchQueue })
     });
 
     if (response.ok) {
-      const result = await response.json();
-      console.log('Sync successful:', result);
-
+      console.log('Sync Success');
       watchQueue = [];
-
-      chrome.action.setBadgeText({ text: '' });
-    } else {
-      console.error('Sync failed:', response.status);
-
-      if (response.status === 401) {
-        await chrome.storage.local.remove('sessionToken');
-      }
+      updateBadge();
     }
-  } catch (error) {
-    console.error('Error syncing to backend:', error);
+  } catch (err) {
+    console.error('Sync network error:', err);
   }
 }
 
-chrome.alarms.create('syncWatchHistory', { periodInMinutes: 1 });
+function updateBadge() {
+  const text = watchQueue.length > 0 ? watchQueue.length.toString() : '';
+  chrome.action.setBadgeText({ text });
+  chrome.action.setBadgeBackgroundColor({ color: '#FF0000' });
+}
+
+chrome.alarms.create('periodicSync', { periodInMinutes: 1 });
+chrome.alarms.onAlarm.addListener(syncToBackend);
+
+getCurrentUser();
+
+if (chrome.alarms) {
+  chrome.alarms.create('periodicSync', { periodInMinutes: 1 });
+}
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'syncWatchHistory') {
+  if (alarm.name === 'periodicSync') {
     syncToBackend();
   }
 });
 
-function updateBadge() {
-  if (watchQueue.length > 0) {
-    chrome.action.setBadgeText({ 
-      text: watchQueue.length.toString() 
-    });
-    chrome.action.setBadgeBackgroundColor({ 
-      color: '#FF0000' 
-    });
-  }
-}
-
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'SYNC_NOW') {
-    syncToBackend().then(() => {
-      sendResponse({ success: true });
-    });
-    return true;
-  }
-  
-  if (message.type === 'GET_STATS') {
-    chrome.storage.local.get(['watchHistory', 'sessionToken'], (data) => {
-      sendResponse({
-        queueSize: watchQueue.length,
-        totalTracked: data.watchHistory?.length || 0,
-        isLoggedIn: !!data.sessionToken
-      });
-    });
-    return true;
-  }
-});
+getCurrentUser();

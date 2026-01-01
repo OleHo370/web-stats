@@ -9,6 +9,7 @@ class WatchHistory(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     video_id = Column(String, ForeignKey("videos.id"), nullable=False)
     watched_at = Column(DateTime(timezone=True), nullable=False)
+    watch_time_seconds = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
