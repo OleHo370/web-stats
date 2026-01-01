@@ -7,12 +7,10 @@ from app.api import auth, ingest, stats
 
 load_dotenv()
 
-# Create database tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="YouTube Watch Stats API")
 
-# CORS setup
 origins = [
     "http://localhost:3000",
     "http://localhost:5173",
@@ -27,7 +25,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(auth.router)
 app.include_router(ingest.router)
 app.include_router(stats.router)

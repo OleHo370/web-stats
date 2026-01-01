@@ -13,7 +13,6 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
 def verify_google_token(token: str) -> dict:
-    """Verify Google token and return user info"""
     try:
         import requests
         

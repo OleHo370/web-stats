@@ -111,9 +111,6 @@ class YouTubeClient:
             return []
     
     def _parse_duration(self, duration_str: str) -> int:
-        """
-        Convert ISO 8601 duration (PT15M33S) to seconds
-        """
         import re
         
         if not duration_str:

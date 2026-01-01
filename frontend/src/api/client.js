@@ -23,6 +23,7 @@ apiClient.interceptors.request.use(
   }
 );
 
+// Auth endpoints
 export const auth = {
   login: async (idToken, accessToken) => {
     const response = await apiClient.post('/auth/login', {
@@ -47,6 +48,16 @@ export const auth = {
 export const stats = {
   getOverview: async () => {
     const response = await apiClient.get('/stats/overview');
+    return response.data;
+  },
+  
+  getTopChannels: async (limit = 10) => {
+    const response = await apiClient.get(`/stats/channels?limit=${limit}`);
+    return response.data;
+  },
+  
+  getVideos: async (limit = 50) => {
+    const response = await apiClient.get(`/stats/videos?limit=${limit}`);
     return response.data;
   },
 };
