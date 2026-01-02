@@ -7,7 +7,9 @@ import ChannelChart from '../components/ChannelChart';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
-  const { overview, channels, videos, loading, error, refresh } = useStats();
+  
+  const { overview, channels, videos, averageWatchTime, totalSeconds, loading, error, refresh } = useStats();
+  
   const [sessionToken, setSessionToken] = useState(null);
   const [showToken, setShowToken] = useState(false);
   const [showExtensionHelp, setShowExtensionHelp] = useState(true);
@@ -22,14 +24,24 @@ export default function Dashboard() {
     alert('Token copied! Paste it in the extension.');
   };
 
-  const formatDuration = (seconds) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
+  const formatDuration = (secondsInput) => {
+    if (secondsInput === null || secondsInput === undefined || secondsInput <= 0) {
+      return "0s";
     }
-    return `${minutes}m`;
+
+    const totalSecs = Math.floor(secondsInput);
+    const d = Math.floor(totalSecs / (24 * 3600));
+    const h = Math.floor((totalSecs % (24 * 3600)) / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+
+    const parts = [];
+    if (d > 0) parts.push(`${d}d`);
+    if (h > 0) parts.push(`${h}h`);
+    if (m > 0) parts.push(`${m}m`);
+    if (s > 0 || parts.length === 0) parts.push(`${s}s`);
+
+    return parts.join(" ");
   };
 
   return (
@@ -53,49 +65,19 @@ export default function Dashboard() {
             <img 
               src={user.picture} 
               alt="Profile" 
-              style={{ 
-                width: '60px', 
-                height: '60px', 
-                borderRadius: '50%' 
-              }}
+              style={{ width: '60px', height: '60px', borderRadius: '50%' }}
             />
           )}
           <div>
-            <h1 style={{ margin: 0, fontSize: '24px' }}>
-              YouTube Watch Stats
-            </h1>
-            <p style={{ margin: '5px 0 0 0', color: '#666' }}>
-              {user?.name || user?.email}
-            </p>
+            <h1 style={{ margin: 0, fontSize: '24px' }}>YouTube Watch Stats</h1>
+            <p style={{ margin: '5px 0 0 0', color: '#666' }}>{user?.name || user?.email}</p>
           </div>
         </div>
         
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={refresh}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontWeight: '500',
-            }}
-          >
+          <button onClick={refresh} style={{ ...buttonStyle, backgroundColor: '#007bff' }}>
           </button>
-          <button
-            onClick={logout}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#dc3545',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontWeight: '500',
-            }}
-          >
+          <button onClick={logout} style={{ ...buttonStyle, backgroundColor: '#dc3545' }}>
             Logout
           </button>
         </div>
@@ -109,79 +91,41 @@ export default function Dashboard() {
           borderRadius: '8px',
           marginBottom: '24px',
         }}>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between',
-            alignItems: 'start' 
-          }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
             <div style={{ flex: 1 }}>
-              <h3 style={{ marginTop: 0, marginBottom: '12px' }}>
-                Setup Browser Extension
-              </h3>
+              <h3 style={{ marginTop: 0, marginBottom: '12px' }}>Setup Browser Extension</h3>
               <ol style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8' }}>
-                <li>Install extension from <code>chrome://extensions/</code></li>
+                <li>Install extension in Chrome Developer Mode</li>
                 <li>
-                  Copy your token: 
-                  <button onClick={copyToken} style={smallButtonStyle}>
-                    Copy Token
-                  </button>
+                  Copy token: 
+                  <button onClick={copyToken} style={smallButtonStyle}>Copy</button>
                   <button onClick={() => setShowToken(!showToken)} style={smallButtonStyle}>
                     {showToken ? 'Hide' : 'Show'}
                   </button>
                 </li>
-                <li>Paste token in extension popup</li>
-                <li>Watch YouTube videos (30+ seconds)</li>
+                <li>Watch any video for 5s+ to start tracking</li>
               </ol>
               {showToken && (
-                <div style={{
-                  marginTop: '12px',
-                  padding: '12px',
-                  backgroundColor: 'white',
-                  borderRadius: '4px',
-                  fontFamily: 'monospace',
-                  fontSize: '11px',
-                  wordBreak: 'break-all',
-                  border: '1px solid #ddd',
-                }}>
-                  {sessionToken}
-                </div>
+                <div style={tokenBoxStyle}>{sessionToken}</div>
               )}
             </div>
-            <button
-              onClick={() => setShowExtensionHelp(false)}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '20px',
-                cursor: 'pointer',
-                padding: '0 10px',
-              }}
-            >
-            </button>
+            <button onClick={() => setShowExtensionHelp(false)} style={closeButtonStyle}>×</button>
           </div>
         </div>
       )}
 
-      {loading && (
+      {loading && !overview && (
         <div style={{ textAlign: 'center', padding: '40px' }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-          <h3>Loading your stats...</h3>
+          <h3>Syncing live data...</h3>
         </div>
       )}
 
       {error && (
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f8d7da',
-          color: '#721c24',
-          borderRadius: '8px',
-          marginBottom: '24px',
-        }}>
-          Error loading stats: {error}
-        </div>
+        <div style={errorStyle}>Error: {error}</div>
       )}
 
-      {!loading && !error && (
+      {!error && (
         <>
           <div style={{
             display: 'grid',
@@ -190,20 +134,20 @@ export default function Dashboard() {
             marginBottom: '24px',
           }}>
             <StatCard 
-              label="Videos Watched"
+              label="Unique Videos"
               value={overview?.total_videos || 0}
             />
             <StatCard 
               label="Total Watch Time"
-              value={formatDuration(overview?.total_watch_time_seconds || 0)}
+              value={formatDuration(totalSeconds)} 
             />
             <StatCard 
-              label="Channels"
+              label="Unique Channels"
               value={overview?.total_channels || 0}
             />
             <StatCard 
-              label="Avg Video Length"
-              value={formatDuration(overview?.avg_video_duration || 0)}
+              label="Average Watch Time"
+              value={formatDuration(averageWatchTime)}
             />
           </div>
 
@@ -212,7 +156,7 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <h2 style={{ marginBottom: '16px' }}>Recent Videos</h2>
+            <h2 style={{ marginBottom: '16px' }}>Recent Video Sessions</h2>
             <VideoTable videos={videos} />
           </div>
         </>
@@ -220,6 +164,16 @@ export default function Dashboard() {
     </div>
   );
 }
+
+
+const buttonStyle = {
+  padding: '10px 20px',
+  color: 'white',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  fontWeight: '500',
+};
 
 const smallButtonStyle = {
   marginLeft: '10px',
@@ -230,4 +184,31 @@ const smallButtonStyle = {
   borderRadius: '4px',
   cursor: 'pointer',
   fontSize: '12px',
+};
+
+const tokenBoxStyle = {
+  marginTop: '12px',
+  padding: '12px',
+  backgroundColor: 'white',
+  borderRadius: '4px',
+  fontFamily: 'monospace',
+  fontSize: '11px',
+  wordBreak: 'break-all',
+  border: '1px solid #ddd',
+};
+
+const closeButtonStyle = {
+  background: 'none',
+  border: 'none',
+  fontSize: '24px',
+  cursor: 'pointer',
+  padding: '0 10px',
+};
+
+const errorStyle = {
+  padding: '20px',
+  backgroundColor: '#f8d7da',
+  color: '#721c24',
+  borderRadius: '8px',
+  marginBottom: '24px',
 };
