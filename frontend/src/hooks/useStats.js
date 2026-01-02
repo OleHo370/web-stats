@@ -9,6 +9,7 @@ export function useStats() {
     channels: [],
     videos: [],
     totalSeconds: 0,
+    averageWatchTime: 0,
     loading: true,
     error: null
   });
@@ -25,14 +26,12 @@ export function useStats() {
       ]);
 
       if (isMounted.current) {
-        const videoList = vi.data || [];
-        const total = videoList.reduce((acc, curr) => acc + (curr.watch_time_seconds || 0), 0);
-        
         setStatsData({
           overview: ov.data,
           channels: ch.data,
           videos: vi.data,
-          totalSeconds: total,
+          totalSeconds: ov.data.total_watch_time_seconds || 0,
+          averageWatchTime: ov.data.avg_watch_time || 0,
           loading: false,
           error: null
         });

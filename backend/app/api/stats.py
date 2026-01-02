@@ -16,12 +16,17 @@ async def get_overview(authorization: str = Header(...), db: Session = Depends(g
     total_videos = db.query(func.count(func.distinct(WatchHistory.video_id))).filter(WatchHistory.user_id == user_id).scalar() or 0
     total_time = db.query(func.sum(WatchHistory.watch_time_seconds)).filter(WatchHistory.user_id == user_id).scalar() or 0
     total_channels = db.query(func.count(func.distinct(Video.channel_title))).join(WatchHistory, Video.id == WatchHistory.video_id).filter(WatchHistory.user_id == user_id).scalar() or 0
+
+    total_sessions = db.query(func.count(WatchHistory.id)).filter(WatchHistory.user_id == user_id).scalar() or 0
+
+    avg_watch_time = int(total_time / total_sessions) if total_sessions > 0 else 0
     
     return {
         "total_videos": total_videos,
         "total_watch_time_seconds": int(total_time),
         "total_channels": total_channels,
-        "avg_video_duration": int(total_time / total_videos) if total_videos > 0 else 0
+        "avg_watch_time": avg_watch_time, 
+        "total_sessions": total_sessions
     }
 
 @router.get("/channels")
