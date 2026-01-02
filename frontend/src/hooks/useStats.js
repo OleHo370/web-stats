@@ -8,6 +8,7 @@ export function useStats() {
     overview: null,
     channels: [],
     videos: [],
+    totalSeconds: 0,
     loading: true,
     error: null
   });
@@ -16,56 +17,44 @@ export function useStats() {
 
   const loadStats = useCallback(async (showLoading = false) => {
     if (!user) return;
-
-    if (showLoading) {
-      setStatsData(prev => ({ ...prev, loading: true }));
-    }
-    
     try {
       const [ov, ch, vi] = await Promise.all([
         apiClient.get('/stats/overview'),
         apiClient.get('/stats/channels?limit=10'),
-        apiClient.get('/stats/videos?limit=50')
+        apiClient.get('/stats/videos?limit=250')
       ]);
 
       if (isMounted.current) {
+        const videoList = vi.data || [];
+        const total = videoList.reduce((acc, curr) => acc + (curr.watch_time_seconds || 0), 0);
+        
         setStatsData({
           overview: ov.data,
           channels: ch.data,
           videos: vi.data,
+          totalSeconds: total,
           loading: false,
           error: null
         });
       }
     } catch (err) {
-      console.error('Stats loading error:', err);
       if (isMounted.current) {
-        setStatsData(prev => ({ 
-          ...prev, 
-          loading: false, 
-          error: 'Failed to fetch updated data' 
-        }));
+        setStatsData(prev => ({ ...prev, loading: false, error: 'Sync Error' }));
       }
     }
   }, [user]);
 
   useEffect(() => {
     isMounted.current = true;
-
     loadStats(true);
-
-    const refreshInterval = setInterval(() => {
-      loadStats(false);
-    }, 2000);
-
+    
+    const interval = setInterval(() => loadStats(false), 1000);
+    
     return () => {
       isMounted.current = false;
-      clearInterval(refreshInterval);
+      clearInterval(interval);
     };
   }, [loadStats]);
 
-  return { 
-    ...statsData, 
-    refresh: () => loadStats(true) 
-  };
+  return { ...statsData, refresh: () => loadStats(true) };
 }

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -11,9 +11,12 @@ from app.utils.auth import verify_session_token
 
 router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 
-# Data models for validation
+SESSION_TIMEOUT_SECONDS = 300
+last_session_tracker: Dict[str, str] = {}
+
 class ExtensionVideoData(BaseModel):
     videoId: str
+    sessionInstanceId: str
     title: str
     channelTitle: str
     duration: int
@@ -33,7 +36,8 @@ async def sync_from_extension(
     try:
         token = authorization.replace("Bearer ", "")
         user_id = verify_session_token(token)
-        
+        now = datetime.now() 
+
         for v in request.videos:
             video = db.query(Video).filter(Video.id == v.videoId).first()
             if not video:
@@ -46,34 +50,41 @@ async def sync_from_extension(
                 )
                 db.add(video)
                 db.flush()
-            try:
-                watched_at_dt = datetime.fromisoformat(v.watchedAt.replace('Z', '+00:00'))
-            except Exception:
-                watched_at_dt = datetime.utcnow()
+            else:
+                if video.title.lower() in ["youtube", "loading...", "watching..."] and v.title.lower() not in ["youtube", "loading..."]:
+                    video.title = v.title
+                if video.channel_title in ["YouTube Channel", "Unknown Channel"] and v.channelTitle != "YouTube Channel":
+                    video.channel_title = v.channelTitle
 
-            existing_watch = db.query(WatchHistory).filter(
-                WatchHistory.user_id == user_id,
-                WatchHistory.video_id == v.videoId,
-                WatchHistory.watched_at >= datetime.utcnow() - timedelta(seconds=15)
-            ).order_by(WatchHistory.watched_at.desc()).first()
+            tracker_key = f"{user_id}_{v.videoId}"
+            previous_sid = last_session_tracker.get(tracker_key)
+            
+            force_new = previous_sid is not None and previous_sid != v.sessionInstanceId
+            last_session_tracker[tracker_key] = v.sessionInstanceId
 
-            if existing_watch:
-                if v.duration > (existing_watch.watch_time_seconds or 0):
-                    existing_watch.watch_time_seconds = v.duration
-                    existing_watch.watched_at = watched_at_dt 
+            existing_watch = None
+            if not force_new:
+                existing_watch = db.query(WatchHistory).filter(
+                    WatchHistory.user_id == user_id,
+                    WatchHistory.video_id == v.videoId,
+                    WatchHistory.watched_at >= now - timedelta(seconds=SESSION_TIMEOUT_SECONDS)
+                ).order_by(WatchHistory.watched_at.desc()).first()
+
+            if existing_watch and not force_new:
+                existing_watch.watch_time_seconds = (existing_watch.watch_time_seconds or 0) + v.duration
+                existing_watch.watched_at = now 
             else:
                 new_watch = WatchHistory(
                     user_id=user_id,
                     video_id=v.videoId,
-                    watched_at=watched_at_dt,
+                    watched_at=now,
                     watch_time_seconds=v.duration
                 )
                 db.add(new_watch)
-
+        
         db.commit()
-        return {"status": "success", "processed": len(request.videos)}
+        return {"status": "success"}
 
     except Exception as e:
         db.rollback()
-        print(f"Ingestion Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
