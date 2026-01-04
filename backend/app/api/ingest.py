@@ -51,14 +51,18 @@ async def sync_from_extension(
                 db.add(video)
                 db.flush()
             else:
-                if video.title.lower() in ["youtube", "loading...", "watching..."] and v.title.lower() not in ["youtube", "loading..."]:
+                is_placeholder = video.title.lower() in ["youtube", "loading...", "watching...", ""]
+                if is_placeholder or (video.title != v.title and v.title.lower() not in ["youtube", "loading..."]):
                     video.title = v.title
-                if video.channel_title in ["YouTube Channel", "Unknown Channel"] and v.channelTitle != "YouTube Channel":
+                
+                if v.videoDuration and v.videoDuration > 0:
+                    video.duration_seconds = v.videoDuration
+
+                if video.channel_title != v.channelTitle and v.channelTitle not in ["YouTube Channel", "Unknown Channel"]:
                     video.channel_title = v.channelTitle
 
             tracker_key = f"{user_id}_{v.videoId}"
             previous_sid = last_session_tracker.get(tracker_key)
-            
             force_new = previous_sid is not None and previous_sid != v.sessionInstanceId
             last_session_tracker[tracker_key] = v.sessionInstanceId
 
@@ -67,17 +71,18 @@ async def sync_from_extension(
                 existing_watch = db.query(WatchHistory).filter(
                     WatchHistory.user_id == user_id,
                     WatchHistory.video_id == v.videoId,
-                    WatchHistory.watched_at >= now - timedelta(seconds=SESSION_TIMEOUT_SECONDS)
-                ).order_by(WatchHistory.watched_at.desc()).first()
+                    WatchHistory.last_updated >= now - timedelta(seconds=SESSION_TIMEOUT_SECONDS)
+                ).order_by(WatchHistory.last_updated.desc()).first()
 
             if existing_watch and not force_new:
                 existing_watch.watch_time_seconds = (existing_watch.watch_time_seconds or 0) + v.duration
-                existing_watch.watched_at = now 
+                existing_watch.last_updated = now
             else:
                 new_watch = WatchHistory(
                     user_id=user_id,
                     video_id=v.videoId,
                     watched_at=now,
+                    last_updated=now,
                     watch_time_seconds=v.duration
                 )
                 db.add(new_watch)

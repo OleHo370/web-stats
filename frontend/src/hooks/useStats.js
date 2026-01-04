@@ -16,7 +16,7 @@ export function useStats() {
 
   const isMounted = useRef(true);
 
-  const loadStats = useCallback(async (showLoading = false) => {
+  const loadStats = useCallback(async () => {
     if (!user) return;
     try {
       const [ov, ch, vi] = await Promise.all([
@@ -45,15 +45,13 @@ export function useStats() {
 
   useEffect(() => {
     isMounted.current = true;
-    loadStats(true);
-    
-    const interval = setInterval(() => loadStats(false), 1000);
-    
+    loadStats();
+    const interval = setInterval(loadStats, 2000);
     return () => {
       isMounted.current = false;
       clearInterval(interval);
     };
   }, [loadStats]);
 
-  return { ...statsData, refresh: () => loadStats(true) };
+  return { ...statsData, refresh: loadStats };
 }
