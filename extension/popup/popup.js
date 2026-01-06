@@ -1,28 +1,19 @@
 const WEBAPP_URL = 'http://localhost:5173';
-const API_URL = 'http://localhost:8000';
+
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadStats();
+  await updateUI();
   setupEventListeners();
 });
 
-async function loadStats() {
-  const { sessionToken } = await chrome.storage.local.get('sessionToken');
+async function updateUI() {
+  const { sessionToken, user } = await chrome.storage.local.get(['sessionToken', 'user']);
   
   if (sessionToken) {
     document.getElementById('notLoggedIn').style.display = 'none';
     document.getElementById('loggedIn').style.display = 'block';
-
-    chrome.runtime.sendMessage({ type: 'GET_STATS' }, (response) => {
-      if (response) {
-        document.getElementById('queueSize').textContent = response.queueSize;
-        document.getElementById('totalTracked').textContent = response.totalTracked;
-        
-        if (response.currentUser) {
-          document.getElementById('userInfo').style.display = 'block';
-          document.getElementById('userEmail').textContent = `Logged in as: ${response.currentUser.email}`;
-        }
-      }
-    });
+    if (user) {
+      document.getElementById('userEmail').textContent = `Logged in as: ${user.email}`;
+    }
   } else {
     document.getElementById('notLoggedIn').style.display = 'block';
     document.getElementById('loggedIn').style.display = 'none';
@@ -30,72 +21,28 @@ async function loadStats() {
 }
 
 function setupEventListeners() {
-  document.getElementById('loginBtn').addEventListener('click', async () => {
-    const token = prompt('Paste your session token from the web app:');
-    
-    if (token && token.trim()) {
-      await chrome.storage.local.set({ sessionToken: token.trim() });
-      
-      try {
-        const response = await fetch(`${API_URL}/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token.trim()}`
-          }
-        });
-        
-        if (response.ok) {
-          const user = await response.json();
-          alert(`Login successful!\n\nTracking for: ${user.email}\n\n`);
-          loadStats();
-        } else {
-          alert('Invalid token. Please copy the correct token from the web app.');
-          await chrome.storage.local.remove('sessionToken');
-        }
-      } catch (error) {
-        alert('Could not connect to server. Make sure the backend is running.');
-        await chrome.storage.local.remove('sessionToken');
-      }
-    } else {
-      chrome.tabs.create({ url: WEBAPP_URL });
-    }
-  });
-
-  document.getElementById('syncBtn')?.addEventListener('click', async () => {
-    const btn = document.getElementById('syncBtn');
-    const status = document.getElementById('syncStatus');
-    
+  document.getElementById('loginBtn').addEventListener('click', () => {
+    const btn = document.getElementById('loginBtn');
+    btn.textContent = 'Logging in...';
     btn.disabled = true;
-    btn.textContent = 'Syncing...';
-    
-    chrome.runtime.sendMessage({ type: 'SYNC_NOW' }, (response) => {
-      btn.disabled = false;
-      btn.textContent = 'Sync Now';
-      
+
+    chrome.runtime.sendMessage({ type: 'GOOGLE_LOGIN' }, (response) => {
       if (response && response.success) {
-        status.className = 'status success';
-        status.textContent = 'Synced successfully!';
-        loadStats();
+        updateUI();
       } else {
-        status.className = 'status error';
-        status.textContent = 'Sync failed';
+        alert('Login failed: ' + (response?.error || 'Unknown error'));
+        btn.textContent = 'Sign in with Google';
+        btn.disabled = false;
       }
-      
-      setTimeout(() => {
-        status.textContent = '';
-        status.className = 'status';
-      }, 3000);
     });
   });
 
-  document.getElementById('openDashboard')?.addEventListener('click', () => {
+  document.getElementById('openDashboard').addEventListener('click', () => {
     chrome.tabs.create({ url: WEBAPP_URL });
   });
 
-  document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-    if (confirm('Are you sure you want to logout?')) {
-      await chrome.storage.local.remove('sessionToken');
-      alert('Logged out successfully. Your queued videos were not synced.');
-      loadStats();
-    }
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await chrome.storage.local.remove(['sessionToken', 'user']);
+    updateUI();
   });
 }

@@ -55,7 +55,7 @@ async def sync_from_extension(
                 if is_placeholder or (video.title != v.title and v.title.lower() not in ["youtube", "loading..."]):
                     video.title = v.title
                 
-                if v.videoDuration and v.videoDuration > 0:
+                if v.videoDuration and v.videoDuration > (video.duration_seconds or 0):
                     video.duration_seconds = v.videoDuration
 
                 if video.channel_title != v.channelTitle and v.channelTitle not in ["YouTube Channel", "Unknown Channel"]:
