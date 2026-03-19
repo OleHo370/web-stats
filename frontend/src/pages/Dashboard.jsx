@@ -49,10 +49,10 @@ export default function Dashboard() {
       </header>
 
       <div className="stats-grid">
-        <StatCard title="Total Videos" value={overview?.total_videos || '0'} icon={Play} />
-        <StatCard title="Watch Time" value={formatStatsDuration(totalSeconds)} icon={Clock} />
+        <StatCard title="Unique Videos" value={overview?.total_videos || '0'} icon={Play} />
+        <StatCard title="Total Watch Time" value={formatStatsDuration(totalSeconds)} icon={Clock} />
         <StatCard title="Unique Channels" value={overview?.total_channels || '0'} icon={Users} />
-        <StatCard title="Avg Watch Time" value={formatStatsDuration(averageWatchTime)} icon={Timer} />
+        <StatCard title="Average Watch Time" value={formatStatsDuration(averageWatchTime)} icon={Timer} />
       </div>
 
       <h2 className="section-title">Recent History</h2>
