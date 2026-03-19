@@ -4,6 +4,10 @@
 
 WatchStats is a three-part system: a **Chrome extension** that silently records your YouTube watch sessions, a **FastAPI backend** that stores and aggregates the data, and a **React dashboard** where you explore your stats in real time.
 
+<img width="1286" height="636" alt="Screenshot 2026-03-19 at 12 44 12 AM" src="https://github.com/user-attachments/assets/ad1eb202-ed3b-4d92-90de-463e6d0d9112" />
+
+<img width="1438" height="766" alt="Screenshot 2026-03-19 at 12 45 33 AM" src="https://github.com/user-attachments/assets/7f1b7ec3-1d11-40d8-849c-af970bb9792b" />
+
 
 ## Architecture
 
